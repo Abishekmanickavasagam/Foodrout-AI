@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FoodRoute AI — Dashboard</title>
+  <meta name="description" content="RL-Based Food Redistribution Dashboard — SDG 2, 11, 12"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <!-- Leaflet CSS for Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <link rel="stylesheet" href="/static/style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-top">
+    <div class="brand">
+      <div class="brand-icon">🌱</div>
+      <div>
+        <div class="brand-title">FoodRoute AI</div>
+        <div class="brand-sub">Smart Redistribution System</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="nav-section-label">Main Menu</div>
+  <ul class="nav-links">
+    <li><a href="#" class="nav-item active" data-page="dashboard" id="nav-dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
+    
+    {% if user.role == 'Restaurant' %}
+    <li><a href="#" class="nav-item" data-page="food-listing" id="nav-food-listing"><span class="nav-icon">🍽️</span> Post Surplus</a></li>
+    {% endif %}
+    
+    {% if user.role == 'NGO' or user.role == 'Restaurant' %}
+    <li><a href="#" class="nav-item" data-page="ngo-panel" id="nav-ngo-panel">
+      <span class="nav-icon">📩</span> Request Hub
+      <span class="nav-badge" id="nav-ngo-badge"></span>
+    </a></li>
+    {% endif %}
+
+    {% if user.role in ['Restaurant', 'Volunteer'] %}
+    <li><a href="#" class="nav-item" data-page="insights" id="nav-insights"><span class="nav-icon">🏕️</span> Homeless Insights</a></li>
+    {% endif %}
+    
+    <li><a href="#" class="nav-item" data-page="results" id="nav-results"><span class="nav-icon">🚀</span> AI Routing</a></li>
+  </ul>
+  
+  <div class="sdg-badges">
+    <div class="badge badge-sdg2">SDG 2<br/><small>Zero Hunger</small></div>
+    <div class="badge badge-sdg11">SDG 11<br/><small>Sustainable Cities</small></div>
+    <div class="badge badge-sdg12">SDG 12<br/><small>Responsible Consumption</small></div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main class="main-content">
+  <header class="topbar">
+    <div>
+      <h1 class="page-title" id="page-title">Dashboard</h1>
+      <p class="page-sub" id="page-sub">Real-time AI food redistribution optimizer</p>
+    </div>
+    <div class="topbar-actions">
+      <!-- Notification Bell -->
+      <div class="notif-wrapper">
+        <button class="notif-bell" id="notif-bell" onclick="toggleNotifDropdown()" title="Notifications">
+          🔔<div class="notif-dot" id="notif-dot"></div>
+        </button>
+        <div class="notif-dropdown" id="notif-dropdown">
+          <div class="notif-header">
+            <span>🔔 Notifications</span>
+            <button class="notif-clear" onclick="markNotificationsRead()">Mark all read</button>
+          </div>
+          <div class="notif-list" id="notif-list"><div class="notif-empty">No notifications yet.</div></div>
+        </div>
+      </div>
+      
+      <div class="user-chip">
+        <span class="role-badge rb-{{ user.role }}">{{ user.role }}</span>
+        <span class="user-display">{{ user.display }}</span>
+      </div>
+      
+      <button class="btn btn-secondary theme-toggle" onclick="toggleTheme()" id="theme-btn" title="Toggle theme">🌙</button>
+      <a href="/logout" class="btn btn-danger" style="padding:0.4rem 0.8rem">⏻ Logout</a>
+    </div>
+  </header>
+
+  <!-- PAGE: DASHBOARD -->
+  <section class="page active" id="page-dashboard">
+    <!-- Depot Selection Overlay (Volunteer Only) -->
+    {% if user.role == 'Volunteer' %}
+    <div id="depot-selection-overlay" class="loader-overlay" style="display:flex; flex-direction:column; background:rgba(18,18,18,0.95); z-index:9999;">
+      <div class="card" style="max-width:400px; width:90%; text-align:center;">
+        <h3 class="card-title" style="font-size:1.5rem; margin-bottom:0.5rem">🚴 Select Your Depot</h3>
+        <p style="color:var(--muted); font-size:0.9rem; margin-bottom:1.5rem">You must check in to a depot before viewing the dashboard or accepting deliveries.</p>
+        <div class="form-field" style="text-align:left;">
+          <select id="depot-select" class="field-input" style="font-size:1rem; padding:0.8rem;">
+            <option value="" disabled selected>Select a Chennai Depot...</option>
+            <option>T Nagar Depot</option>
+            <option>Guindy Depot</option>
+            <option>Anna Nagar Depot</option>
+            <option>Tambaram Depot</option>
+            <option>Central Depot</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" style="width:100%; justify-content:center; margin-top:1rem; padding:0.8rem; font-size:1rem;" onclick="setVolunteerDepot()">Check In to Depot</button>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if user.role == 'Restaurant' %}
+    <div class="welcome-banner">
+      <div class="wb-glow"></div><div class="wb-icon">🍽️</div>
+      <div style="flex:1;"><div class="wb-title">Welcome back, {{ user.display }}!</div><div class="wb-sub">Post surplus food to prevent waste, accept NGO requests, and let AI route it.</div></div>
+      <div style="background:rgba(255,255,255,0.1); padding:0.8rem 1rem; border-radius:8px; display:flex; align-items:center; gap:0.5rem; cursor:pointer;" onclick="toggleDonationMode()" id="donation-toggle-btn">
+        <span style="font-size:1.5rem;" id="donation-icon">⚪</span>
+        <div style="font-size:0.85rem; line-height:1.2;"><div>Willing to Donate</div><strong id="donation-text">Disabled</strong></div>
+      </div>
+    </div>
+    {% elif user.role == 'NGO' %}
+    <div class="welcome-banner">
+      <div class="wb-glow"></div><div class="wb-icon">🏥</div>
+      <div><div class="wb-title">Welcome back, {{ user.display }}!</div><div class="wb-sub">Request surplus food from partner restaurants and track live deliveries.</div></div>
+    </div>
+    {% else %}
+    <div class="welcome-banner">
+      <div class="wb-glow"></div><div class="wb-icon">🚴</div>
+      <div>
+        <div class="wb-title">Welcome back, {{ user.display }}!</div>
+        <div class="wb-sub">Depot: <strong id="current-depot" style="color:#fff">Not Checked In</strong> | Teammates Active: <strong id="teammates-count" style="color:#fff">0</strong></div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="three-col">
+      <!-- Left side stats -->
+      <div style="grid-column: span 2; display: flex; flex-direction: column; gap: 1rem;">
+        <div class="cards-grid" id="primary-stats">
+          <div class="card stat-card"><div class="stat-icon">📦</div><div><div class="stat-value" id="stat-surplus">420</div><div class="stat-label">Total Surplus Food</div></div></div>
+          <div class="card stat-card"><div class="stat-icon">🙏</div><div><div class="stat-value" id="stat-demand">380</div><div class="stat-label">Pending Demand</div></div></div>
+          <div class="card stat-card"><div class="stat-icon">🏥</div><div><div class="stat-value" id="stat-ngos">10</div><div class="stat-label">Active NGOs</div></div></div>
+          <div class="card stat-card"><div class="stat-icon">🚴</div><div><div class="stat-value" id="stat-vols">12</div><div class="stat-label">Active Volunteers</div></div></div>
+        </div>
+
+        <div class="card card-green-top">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+            <h3 class="card-title" style="margin:0">🚀 AI Route Optimization</h3>
+            {% if user.role == 'Restaurant' %}
+            <div style="display:flex;gap:0.5rem">
+              <button class="btn btn-secondary" id="btn-generate" onclick="generateData()"><span>⚡</span> Sim Data</button>
+              <button class="btn btn-primary" id="btn-optimize" onclick="runOptimization()" disabled><span>🤖</span> Run AI</button>
+            </div>
+            {% elif user.role == 'Volunteer' %}
+            <div style="display:flex;gap:0.5rem">
+              <button class="btn btn-primary" id="btn-vol-opt" onclick="runVolunteerOptimization()"><span>🚀</span> Run AI Optimization</button>
+            </div>
+            {% endif %}
+          </div>
+          <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem;">Optimize the distribution of all logged surplus food directly to NGOs and homeless clusters using Reinforcement Learning.</p>
+          
+          <div class="cards-grid" id="result-summary-row" style="display:none">
+            <div class="card stat-card highlight-green" style="padding:0.75rem"><div class="stat-icon" style="font-size:1.4rem">✅</div><div><div class="stat-value" style="font-size:1.2rem" id="stat-delivered">—</div><div class="stat-label">Delivered</div></div></div>
+            <div class="card stat-card highlight-purple" style="padding:0.75rem"><div class="stat-icon" style="font-size:1.4rem">♻️</div><div><div class="stat-value" style="font-size:1.2rem" id="stat-spoilage">—</div><div class="stat-label">Spoilage Saved</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right side activity feed & Leaderboard -->
+      <div style="display:flex; flex-direction:column; gap:1rem;">
+        <div class="card" style="flex:1;">
+          <h3 class="card-title">⚡ Live Activity</h3>
+          <div class="activity-feed" id="activity-feed" style="max-height:200px; overflow-y:auto;">
+            <div class="activity-item"><div class="activity-dot ad-green"></div><div><div class="activity-text"><strong>Green Plate Bistro</strong> uploaded 30 units of Cooked Rice.</div><div class="activity-time">Just now</div></div></div>
+            <div class="activity-item"><div class="activity-dot ad-purple"></div><div><div class="activity-text"><strong>Feeding India</strong> requested 50 units.</div><div class="activity-time">5 mins ago</div></div></div>
+            <div class="activity-item"><div class="activity-dot ad-blue"></div><div><div class="activity-text"><strong>Survey Team B</strong> added a homeless cluster at Central Station.</div><div class="activity-time">1 hour ago</div></div></div>
+          </div>
+        </div>
+        
+        <div class="card" style="flex:1;">
+          <h3 class="card-title" style="margin-bottom:0.5rem">🏆 Leaderboards</h3>
+          <div class="role-selector" style="margin-bottom:0.5rem; background:var(--bg-layer2);">
+             <button class="role-btn active" onclick="switchLeaderboard('Restaurant')" id="btn-lb-res">Restaurants</button>
+             <button class="role-btn" onclick="switchLeaderboard('Volunteer')" id="btn-lb-vol">Volunteers</button>
+          </div>
+          <div class="activity-feed" id="leaderboard-list" style="max-height:200px; overflow-y:auto;">
+             <div class="activity-text" style="color:var(--muted); text-align:center; padding:1rem;">Loading rankings...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE: INSIGHTS (HOMELESS SURVEY) -->
+  {% if user.role in ['Restaurant', 'Volunteer'] %}
+  <section class="page" id="page-insights">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <h2 style="font-size:1.2rem;font-weight:700;">🏕️ Homeless Cluster Insights</h2>
+        <p style="font-size:0.85rem;color:var(--muted);margin-top:2px;">Real-world survey data from Chennai fieldwork teams.</p>
+      </div>
+      <div>
+        <button class="btn btn-download" onclick="downloadSurveyCSV()">📥 Download Survey CSV</button>
+      </div>
+    </div>
+
+    <!-- Leaflet Map -->
+    <div class="card" style="padding:0; overflow:hidden;">
+      <div class="cluster-map-container">
+        <div id="cluster-leaflet-map"></div>
+      </div>
+    </div>
+
+    <!-- Survey Data Table -->
+    <div class="card" style="margin-top:0.5rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h3 class="card-title">📋 Raw Survey Responses & Probabilities</h3>
+          {% if user.role == 'Volunteer' %}
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+              <span style="font-size:0.85rem; color:var(--muted)">Route Start Priority:</span>
+              <select id="start-cluster-priority" class="field-input" style="padding:0.3rem 0.5rem; min-width:150px;">
+                  <option value="none">AI Determined</option>
+                  <!-- Will populate from JS -->
+              </select>
+          </div>
+          {% endif %}
+      </div>
+      <div class="table-wrap"><table class="data-table" id="survey-table">
+        <thead><tr><th>ID</th><th>Location</th><th>Area</th><th>People Est.</th><th>Density</th><th>Probability</th></tr></thead>
+        <tbody id="survey-tbody"><tr><td colspan="7" class="empty-row">Loading survey data...</td></tr></tbody>
+      </table></div>
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- PAGE: FOOD LISTING (Restaurant only) -->
+  {% if user.role == 'Restaurant' %}
+  <section class="page" id="page-food-listing">
+    <div class="two-col">
+      <div class="card food-upload-card">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+                <h3 class="card-title">📤 Post Surplus Food</h3>
+                <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem;">Prevent waste by listing food available.</p>
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+                <button class="btn btn-secondary" onclick="generateDemoFood()" style="font-size:0.75rem; padding:0.3rem 0.5rem;">🎲 Demo Data</button>
+                <button class="btn btn-primary" onclick="showDonationModal()" style="font-size:0.75rem; padding:0.3rem 0.5rem; background:var(--green-light); color:#121212; border:none; font-weight:700;">✅ Donate Food</button>
+            </div>
+        </div>
+        <div class="form-field"><label class="field-label">Food Type</label>
+          <select id="food-type" class="field-input"><option>Cooked Rice</option><option>Bread Loaves</option><option>Dal &amp; Curry</option><option>Fruits</option><option>Biryani</option><option>Rotis</option><option>Soup</option><option>Snack Boxes</option></select>
+        </div>
+        <div class="field-row">
+          <div class="form-field"><label class="field-label">Quantity (units/kg)</label><input type="number" id="food-qty" class="field-input" placeholder="e.g. 30" min="1"/></div>
+          <div class="form-field"><label class="field-label">Expiry (hours)</label>
+            <select id="food-expiry" class="field-input"><option value="1">1 hour</option><option value="2" selected>2 hours</option><option value="3">3 hours</option><option value="4">4 hours</option><option value="6">6 hours</option></select>
+          </div>
+        </div>
+        <div class="form-field"><label class="field-label">Pickup Location</label><input type="text" id="food-location" class="field-input" placeholder="e.g. Anna Nagar, Chennai"/></div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:0.5rem" onclick="uploadFoodListing()">📤 Publish Listing</button>
+      </div>
+      
+      <div class="card" style="margin-top:0; margin-bottom:1rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+          <h3 class="card-title" style="margin:0">📦 Your Donations</h3>
+          <button class="btn btn-secondary" style="padding:0.3rem 0.7rem;font-size:0.75rem" onclick="loadMyDonations()">↻ Refresh</button>
+        </div>
+        <div class="table-wrap"><table class="data-table">
+          <thead><tr><th>Food Type</th><th>Qty</th><th>Expiry</th><th>Location</th><th>Type</th><th>Target NGO</th><th>Status</th></tr></thead>
+          <tbody id="my-donations-tbody"><tr><td colspan="7" class="empty-row">No active voluntary donations.</td></tr></tbody>
+        </table></div>
+      </div>
+
+      <div class="card" style="margin-top:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+          <h3 class="card-title" style="margin:0">📋 Your Live Listings</h3>
+          <button class="btn btn-secondary" style="padding:0.3rem 0.7rem;font-size:0.75rem" onclick="loadFoodListings()">↻ Refresh</button>
+        </div>
+        <div class="table-wrap"><table class="data-table">
+          <thead><tr><th>Food Type</th><th>Qty</th><th>Expiry</th><th>Status</th></tr></thead>
+          <tbody id="listings-tbody"><tr><td colspan="4" class="empty-row">No listings yet.</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- PAGE: NGO PANEL -->
+  <section class="page" id="page-ngo-panel">
+    <div class="two-col">
+      <div>
+        <div class="card" {% if user.role != 'NGO' %}style="opacity:0.6; pointer-events:none;"{% endif %}>
+          <h3 class="card-title">📨 Request Surplus Food</h3>
+          {% if user.role == 'NGO' %}
+          <div class="form-field"><label class="field-label">Required Quantity (units)</label><input type="number" id="req-qty" class="field-input" placeholder="e.g. 50" min="1"/></div>
+          <div class="form-field"><label class="field-label">Delivery Location</label><input type="text" id="req-location" class="field-input" placeholder="e.g. Anna Nagar, Chennai"/></div>
+          <div class="form-field"><label class="field-label">Urgency Level</label>
+            <select id="req-urgency" class="field-input"><option value="High">🔴 High — Emergency</option><option value="Medium" selected>🟡 Medium — Within 2 hours</option><option value="Low">🟢 Low — Flexible</option></select>
+          </div>
+          <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:0.5rem" onclick="sendNGORequest()">Broadast Request</button>
+          {% else %}
+          <p style="color:var(--muted);font-size:0.85rem;">Only NGOs can initiate food requests.</p>
+          {% endif %}
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+            <h3 class="card-title" style="margin:0">📋 Active Network Requests</h3>
+            <button class="btn btn-secondary" style="padding:0.3rem 0.7rem;font-size:0.75rem" onclick="loadRequests()">↻ Refresh</button>
+          </div>
+          <div id="requests-list"><div class="empty-row" style="text-align:center;padding:2rem;color:var(--muted);">No pending requests.</div></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card" style="margin-top:0.5rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+        <h3 class="card-title" style="margin:0">🍱 Available Donations (Live)</h3>
+        <button class="btn btn-secondary" style="padding:0.3rem 0.7rem;font-size:0.75rem" onclick="loadAvailableDonations()">↻ Refresh</button>
+      </div>
+      <div class="table-wrap"><table class="data-table">
+        <thead><tr><th>Food Type</th><th>Qty</th><th>Expiry</th><th>Location</th><th>Restaurant</th><th>Action</th></tr></thead>
+        <tbody id="available-donations-tbody"><tr><td colspan="6" class="empty-row">Loading available donations...</td></tr></tbody>
+      </table></div>
+    </div>
+    <div class="card" id="dm-panel" style="margin-top:0.5rem;display:none">
+      <h3 class="card-title">💬 Message Coordinator — <span id="dm-title">NGO ↔ Restaurant</span></h3>
+      <div class="dm-messages" id="dm-messages"></div>
+      <div class="dm-input-row">
+        <input type="text" class="dm-input" id="dm-text" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendMessage()"/>
+        <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE: RESULTS / AI ROUTING -->
+  <section class="page" id="page-results">
+    
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+        <h3 class="card-title" style="margin:0">🗺️ AI Optimized Sequence</h3>
+        <div style="display:flex; gap:0.5rem;">
+          <a href="/route-map" class="btn btn-primary" style="font-size:0.8rem;padding:0.45rem 1rem;">Anim Map →</a>
+          <button class="btn gmaps-btn" style="font-size:0.8rem;padding:0.45rem 1rem;" onclick="openGoogleMapsNav()" id="gm-btn" disabled>📍 Google Maps Nav</button>
+        </div>
+      </div>
+      <div class="table-wrap"><table class="data-table" id="route-table">
+        <thead><tr><th>Step</th><th>Type</th><th>Location ID</th><th>X</th><th>Y</th><th>Food Handled (units)</th></tr></thead>
+        <tbody id="route-tbody"><tr><td colspan="6" class="empty-row">Run AI optimization first to generate routes.</td></tr></tbody>
+      </table></div>
+    </div>
+
+    <div class="two-col" id="charts-row" style="display:none; margin-top:0.5rem;">
+      <div class="card chart-card"><h3 class="card-title">🎯 Model Reward Convergence</h3><img id="reward-graph" class="chart-img" alt="Reward graph"/></div>
+      <div class="card chart-card"><h3 class="card-title">📊 Food Distribution</h3><canvas id="bar-chart" style="max-height:230px;"></canvas></div>
+    </div>
+
+    <!-- Fairness Meter -->
+    <div class="card" id="fairness-card" style="display:none;margin-top:0">
+      <h3 class="card-title">⚖️ 50/50 Fairness Distribution Meter (AI-enforced)</h3>
+      <div class="fairness-header">
+        <div style="font-size:0.82rem;color:var(--muted);">Allocating equally across structured NGOs and unstructured Homeless Clusters</div>
+        <div class="fairness-score-badge" id="fairness-score-badge">Score: —</div>
+      </div>
+      <div class="fairness-bar-wrap">
+        <div class="fairness-bar-ngo" id="fairness-bar-ngo" style="width:50%">NGO</div>
+        <div class="fairness-bar-homeless" id="fairness-bar-homeless" style="width:50%">Homeless</div>
+      </div>
+      <div class="fairness-labels">
+        <span style="color:var(--purple)">🏥 NGOs: <strong id="fairness-ngo-val">—</strong></span>
+        <span style="color:var(--green-light)">🏕️ Homeless: <strong id="fairness-homeless-val">—</strong></span>
+      </div>
+    </div>
+
+    <!-- Volunteer Tracker -->
+    <div class="card" style="margin-top:0.5rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+        <div>
+          <h3 class="card-title" style="margin-bottom:0.25rem">🚴 Volunteer Fleet Tracker</h3>
+          <p style="font-size:0.82rem;color:var(--muted)">Assigned Pilot: <strong style="color:var(--green-light)" id="res-volunteer">Arjun (NCC)</strong></p>
+        </div>
+        {% if user.role == 'Volunteer' %}
+        <div style="display:flex;gap:0.5rem;">
+          <button class="btn btn-primary" onclick="startDelivery()" id="btn-start-delivery" disabled>🚀 Start Dispatch</button>
+          <button class="btn btn-green" onclick="completeDelivery()" id="btn-complete-delivery" style="display:none">✅ Confirm Delivery</button>
+        </div>
+        {% else %}
+        <button class="btn btn-secondary" disabled>🔒 Volunteer Action Only</button>
+        {% endif %}
+      </div>
+      <div class="delivery-tracker" id="delivery-tracker" style="display:none">
+        <div class="dt-step" id="dts-assigned"><div class="dt-icon">📋</div><div class="dt-label">Route Assigned</div></div>
+        <div class="dt-step" id="dts-enroute"><div class="dt-icon">🚴</div><div class="dt-label">En Route</div></div>
+        <div class="dt-step" id="dts-delivered"><div class="dt-icon">✅</div><div class="dt-label">Delivered</div></div>
+      </div>
+      <div id="delivery-status-msg" style="font-size:0.8rem;color:var(--green-light);margin-top:0.5rem;display:none;font-weight:600;"></div>
+    </div>
+  </section>
+
+</main>
+
+<!-- DONATION MODAL -->
+<div class="loader-overlay" id="donation-modal" style="display:none; align-items:center; justify-content:center;">
+  <div class="card" style="width:400px; max-width:90%; animation:slideIn 0.3s ease;">
+    <h3 class="card-title" style="color:var(--green-light)">💚 Submit Voluntary Donation</h3>
+    <p style="font-size:0.85rem; color:var(--muted); margin-bottom:1rem;">Explicitly offer food directly to partner NGOs. This bypasses the RL routing simulator.</p>
+    
+    <div class="form-field"><label class="field-label">Food Type</label><input type="text" id="df-type" class="field-input" placeholder="e.g. 50 Cooked Meals"/></div>
+    <div class="field-row">
+      <div class="form-field"><label class="field-label">Quantity (units)</label><input type="number" id="df-qty" class="field-input" placeholder="e.g. 50" min="1"/></div>
+      <div class="form-field"><label class="field-label">Expiry (hours)</label><input type="number" id="df-expiry" class="field-input" value="2" min="1"/></div>
+    </div>
+    <div class="form-field"><label class="field-label">Pickup Location</label><input type="text" id="df-location" class="field-input" placeholder="e.g. Main Kitchen, Adyar"/></div>
+    
+    <div class="form-field">
+      <label class="field-label">Donation Type</label>
+      <div style="display:flex; gap:1rem; margin-top:0.25rem;">
+        <label style="font-size:0.85rem; display:flex; align-items:center; cursor:pointer;">
+          <input type="radio" name="df-type-radio" value="public" checked onchange="toggleNgoSelect(false)" style="margin-right:0.4rem;"/> Public (FCFS)
+        </label>
+        <label style="font-size:0.85rem; display:flex; align-items:center; cursor:pointer;">
+          <input type="radio" name="df-type-radio" value="assigned" onchange="toggleNgoSelect(true)" style="margin-right:0.4rem;"/> Assigned to NGO
+        </label>
+      </div>
+    </div>
+
+    <div class="form-field" id="df-ngo-select-wrap" style="display:none;">
+      <label class="field-label">Select Target NGO</label>
+      <select id="df-assigned-ngo" class="field-input">
+        <option value="">-- Choose NGO --</option>
+      </select>
+    </div>
+
+    <div class="form-field"><label class="field-label">Optional Notes</label><textarea id="df-notes" class="field-input" placeholder="Any specific requirements for pickup..."></textarea></div>
+    
+    <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+        <button class="btn btn-secondary" onclick="hideDonationModal()">❌ Cancel</button>
+        <button class="btn btn-primary" style="background:var(--green-light); color:#121212; border:none;" onclick="submitVoluntaryDonation()">✅ Submit Donation</button>
+    </div>
+  </div>
+</div>
+
+<!-- DM MODAL -->
+<div class="loader-overlay" id="dm-modal" style="display:none; align-items:center; justify-content:center;">
+  <div class="card" style="width:350px; max-width:90%; animation:slideIn 0.3s ease;">
+    <div class="modal-content" style="max-width:450px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <h3 id="dm-modal-title" style="color:var(--green-light); margin:0;">Direct Message</h3>
+      <button class="btn btn-secondary" style="padding:0.2rem 0.5rem; font-size:0.7rem;" onclick="loadChatHistory(currentChatPeer)">↻ Refresh</button>
+    </div>
+    
+    <div id="dm-chat-history" style="height:250px; overflow-y:auto; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:0.75rem; margin-bottom:1rem; display:flex; flex-direction:column; gap:0.5rem;">
+      <div style="text-align:center; color:rgba(255,255,255,0.3); font-size:0.8rem; margin-top:2rem;">Select a donation to start chatting...</div>
+    </div>
+
+    <div class="form-field" style="margin-bottom:0.5rem;">
+      <textarea id="dm-text" class="field-input" placeholder="Type your message here..." style="height:80px;"></textarea>
+    </div>
+    
+    <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="hideDmModal()">Close</button>
+      <button class="btn btn-primary" onclick="sendDmModalMessage()">Send Message</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOADER -->
+<div class="loader-overlay" id="loader" style="display:none">
+  <div class="loader-box">
+    <div class="spinner"></div>
+    <div class="loader-title" id="loader-title">Running Deep Q-Network...</div>
+    <div class="loader-sub" id="loader-sub">Computing optimal routes for maximum fairness.</div>
+    <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar"></div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- JS ENV variables -->
+<script>
+  window.USER_ROLE = "{{ user.role }}";
+</script>
+<script src="/static/script.js"></script>
+</body>
+</html>

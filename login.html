@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FoodRoute AI — Login</title>
+  <meta name="description" content="Smart AI Food Redistribution System"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/style.css"/>
+  <style>
+    /* Specific overrides for login page layout */
+    .login-page {
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 2rem;
+      background:
+        radial-gradient(ellipse at 20% 30%, var(--green-subtle) 0%, transparent 50%),
+        var(--bg);
+    }
+    .theme-toggle-top {
+      position: fixed; top: 1.5rem; right: 1.5rem;
+      width: 40px; height: 40px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); background: var(--surface2); color: var(--text);
+      cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all var(--trans);
+    }
+    .theme-toggle-top:hover { background: var(--surface3); border-color: var(--green); }
+    .login-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 24px; padding: 3rem; width: 100%; max-width: 420px;
+      box-shadow: var(--shadow);
+      border-top: 4px solid var(--green);
+      animation: slideUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:none} }
+    .brand { text-align: center; margin-bottom: 2rem; flex-direction: column; gap: 0.5rem; }
+    .brand-icon { font-size: 3.5rem; }
+    .brand-title { font-size: 1.6rem; font-weight: 800; color: var(--text); letter-spacing: -0.02em; }
+    .brand-sub { font-size: 0.85rem; color: var(--muted); }
+
+    /* Role Sliding UI */
+    .role-slider {
+      display: flex; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 4px; margin-bottom: 2rem; position: relative;
+    }
+    .role-slider-bg {
+      position: absolute; top: 4px; bottom: 4px; left: 4px;
+      width: calc(33.33% - 2.6px); background: var(--surface);
+      border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1;
+    }
+    [data-theme="light"] .role-slider-bg { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .role-btn {
+      flex: 1; padding: 0.6rem 0; border: none; background: transparent;
+      font-size: 0.78rem; font-weight: 600; color: var(--text-sec);
+      cursor: pointer; position: relative; z-index: 2; transition: color 0.3s;
+    }
+    .role-btn.active { color: var(--green-light); }
+
+    .btn-submit { width: 100%; padding: 0.85rem; border-radius: var(--radius-sm); font-size: 1rem; margin-top: 0.5rem; }
+    .error-msg, .success-msg {
+      border-radius: 8px; padding: 0.7rem 1rem; font-size: 0.82rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;
+    }
+    .error-msg { background: rgba(239,83,80,0.1); border: 1px solid rgba(239,83,80,0.3); color: var(--red); }
+    .success-msg { background: rgba(76,175,80,0.1); border: 1px solid rgba(76,175,80,0.3); color: var(--green-light); }
+
+    .bottom-link { text-align: center; margin-top: 1.5rem; font-size: 0.8rem; color: var(--muted); }
+    .bottom-link a { color: var(--green-light); text-decoration: none; font-weight: 600; cursor: pointer; transition: color var(--trans); }
+    .bottom-link a:hover { color: var(--green); text-decoration: underline; }
+
+    /* Demo accounts purely for testing */
+    .demo-bar { display: flex; justify-content: center; gap: 0.5rem; margin-top: 1.5rem; flex-wrap: wrap; }
+    .demo-btn { font-size: 0.65rem; padding: 3px 8px; border-radius: 100px; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); cursor: pointer; transition: all var(--trans); }
+    .demo-btn:hover { background: var(--surface3); color: var(--text); }
+
+    /* Hide register initially */
+    #panel-register { display: none; }
+  </style>
+</head>
+<body>
+
+<button class="theme-toggle-top" id="theme-btn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+
+<div class="login-page">
+  <div class="login-card">
+
+    <div class="brand">
+      <div class="brand-icon">🌱</div>
+      <div class="brand-title">FoodRoute AI</div>
+      <div class="brand-sub">Smart AI Food Redistribution System</div>
+    </div>
+
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in msgs %}
+        <div class="error-msg">⚠️ {{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <!-- ========================= LOGIN PANEL ========================= -->
+    <div id="panel-login">
+      <!-- Role Slider -->
+      <div class="role-slider">
+        <div class="role-slider-bg" id="role-bg"></div>
+        <button class="role-btn active" onclick="selectRole('Restaurant', 0)">Restaurant</button>
+        <button class="role-btn" onclick="selectRole('NGO', 1)">NGO</button>
+        <button class="role-btn" onclick="selectRole('Volunteer', 2)">Volunteer</button>
+      </div>
+
+      <form method="POST" action="/login">
+        <input type="hidden" name="role" id="login-role" value="Restaurant"/>
+        <div class="form-field">
+          <label class="field-label" for="username">Username / Name</label>
+          <input type="text" id="username" name="username" class="field-input" placeholder="e.g. restaurant1" autocomplete="username" required/>
+        </div>
+        <div class="form-field">
+          <label class="field-label" for="password">Password</label>
+          <input type="password" id="password" name="password" class="field-input" placeholder="••••••••" autocomplete="current-password" required/>
+        </div>
+        <button type="submit" class="btn btn-primary btn-submit">Sign In →</button>
+      </form>
+
+      <div class="bottom-link">
+        New here? <a onclick="toggleMode('register')">Create an account</a>
+      </div>
+
+      <div class="demo-bar">
+        <button class="demo-btn" onclick="fillDemo('restaurant1', 0, 'Restaurant')">Demo Res</button>
+        <button class="demo-btn" onclick="fillDemo('ngo1', 1, 'NGO')">Demo NGO</button>
+        <button class="demo-btn" onclick="fillDemo('volunteer1', 2, 'Volunteer')">Demo Vol</button>
+      </div>
+    </div>
+
+    <!-- ========================= REGISTER PANEL ========================= -->
+    <div id="panel-register">
+      <div id="reg-msg"></div>
+
+      <div class="form-field">
+        <label class="field-label">Display Name</label>
+        <input type="text" id="reg-display" class="field-input" placeholder="e.g. Hope Kitchen"/>
+      </div>
+      <div class="form-field">
+        <label class="field-label">Username</label>
+        <input type="text" id="reg-username" class="field-input" placeholder="Choose a username"/>
+      </div>
+      <div class="form-field">
+        <label class="field-label">Password</label>
+        <input type="password" id="reg-password" class="field-input" placeholder="••••••••"/>
+      </div>
+      <div class="form-field">
+        <label class="field-label">Select Role</label>
+        <select id="reg-role" class="field-input">
+          <option value="Restaurant">Restaurant</option>
+          <option value="NGO">NGO</option>
+          <option value="Volunteer">Volunteer</option>
+        </select>
+      </div>
+
+      <button class="btn btn-primary btn-submit" style="margin-top:1.5rem" onclick="submitRegister()">Create Account →</button>
+
+      <div class="bottom-link">
+        Already have an account? <a onclick="toggleMode('login')">Sign in</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// Theme logic
+function initTheme() {
+  const t = localStorage.getItem('fr-theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = t === 'dark' ? '🌙' : '☀️';
+}
+function toggleTheme() {
+  const cur  = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('fr-theme', next);
+  document.getElementById('theme-btn').textContent = next === 'dark' ? '🌙' : '☀️';
+}
+initTheme();
+
+// Slider logic
+function selectRole(role, index) {
+  document.getElementById('login-role').value = role;
+  const bg = document.getElementById('role-bg');
+  bg.style.transform = `translateX(${index * 100}%)`;
+
+  const btns = document.querySelectorAll('.role-btn');
+  btns.forEach(b => b.classList.remove('active'));
+  btns[index].classList.add('active');
+}
+
+function fillDemo(user, index, role) {
+  selectRole(role, index);
+  document.getElementById('username').value = user;
+  document.getElementById('password').value = 'pass123';
+}
+
+function toggleMode(mode) {
+  document.getElementById('panel-login').style.display    = mode === 'login' ? 'block' : 'none';
+  document.getElementById('panel-register').style.display = mode === 'register' ? 'block' : 'none';
+}
+
+async function submitRegister() {
+  const display  = document.getElementById('reg-display').value.trim();
+  const username = document.getElementById('reg-username').value.trim();
+  const password = document.getElementById('reg-password').value.trim();
+  const role     = document.getElementById('reg-role').value;
+
+  if (!display || !username || !password) {
+    showRegMsg('All fields are required.', false);
+    return;
+  }
+  try {
+    const res  = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ display, username, password, role }),
+    });
+    const json = await res.json();
+    if (json.success) {
+      showRegMsg('✅ ' + json.message + ' Redirecting...', true);
+      setTimeout(() => {
+        toggleMode('login');
+        document.getElementById('username').value = username;
+        document.getElementById('password').value = password;
+        if (role === 'Restaurant') selectRole(role, 0);
+        else if (role === 'NGO')   selectRole(role, 1);
+        else selectRole(role, 2);
+      }, 1500);
+    } else {
+      showRegMsg('❌ ' + json.error, false);
+    }
+  } catch {
+    showRegMsg('❌ Network error.', false);
+  }
+}
+
+function showRegMsg(msg, success) {
+  const el = document.getElementById('reg-msg');
+  el.className = success ? 'success-msg' : 'error-msg';
+  el.textContent = msg;
+  el.style.display = 'flex';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Route Map — FoodRoute AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin:0; padding:0; }
+    :root {
+      --bg: #0f172a; --surface: #1e293b; --surface2: #263148; --border: #334155;
+      --text: #f1f5f9; --muted: #94a3b8; --accent: #38bdf8;
+      --green: #34d399; --orange: #fb923c; --purple: #a78bfa; --red: #f87171;
+      --radius: 12px; --trans: 0.2s ease;
+    }
+    [data-theme="light"] {
+      --bg: #f1f5f9; --surface: #ffffff; --surface2: #e2e8f0; --border: #cbd5e1;
+      --text: #0f172a; --muted: #64748b; --accent: #0284c7;
+    }
+    html, body { height:100%; font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); }
+
+    /* Top Bar */
+    .topbar {
+      position: sticky; top:0; z-index: 100;
+      background: rgba(15,23,42,0.9); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0.85rem 2rem;
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    }
+    [data-theme="light"] .topbar { background: rgba(241,245,249,0.9); }
+    .topbar-left { display:flex; align-items:center; gap:0.75rem; }
+    .back-btn {
+      display:inline-flex; align-items:center; gap:0.4rem;
+      padding: 0.45rem 1rem; border-radius:8px; border:1px solid var(--border);
+      background:var(--surface2); color:var(--text); font-size:0.83rem; font-weight:600;
+      cursor:pointer; text-decoration:none; transition: all var(--trans);
+    }
+    .back-btn:hover { background:var(--border); }
+    .page-title { font-size:1.15rem; font-weight:700; }
+    .page-sub { font-size:0.75rem; color:var(--muted); }
+    .topbar-right { display:flex; align-items:center; gap:0.75rem; }
+    .role-badge {
+      font-size:0.72rem; font-weight:700; padding:3px 10px; border-radius:100px;
+    }
+    .rb-Restaurant { background:rgba(251,146,60,0.2); color:#fb923c; }
+    .rb-NGO        { background:rgba(167,139,250,0.2); color:#a78bfa; }
+    .rb-Volunteer  { background:rgba(52,211,153,0.2);  color:#34d399; }
+    .theme-btn {
+      width:34px; height:34px; border-radius:8px; border:1px solid var(--border);
+      background:var(--surface2); color:var(--text); cursor:pointer; font-size:1rem;
+      display:flex; align-items:center; justify-content:center; transition:all var(--trans);
+    }
+    .theme-btn:hover { background:var(--border); }
+
+    /* Layout */
+    .main { display:grid; grid-template-columns:1fr 380px; gap:1.5rem; padding:1.5rem 2rem; min-height: calc(100vh - 64px); }
+    @media(max-width:900px) { .main { grid-template-columns:1fr; } }
+
+    /* Map */
+    #gmap { width:100%; border-radius:var(--radius); border:1px solid var(--border); min-height:520px; }
+    .map-placeholder {
+      border-radius:var(--radius); border:1px solid var(--border);
+      background:var(--surface); min-height:520px;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:1rem; color:var(--muted);
+    }
+    .map-placeholder .icon { font-size:4rem; }
+    .map-placeholder p { font-size:0.85rem; max-width:280px; text-align:center; }
+    .map-placeholder small { font-size:0.72rem; color:var(--muted); font-family:monospace; }
+
+    /* Panel */
+    .panel { display:flex; flex-direction:column; gap:1.25rem; overflow-y:auto; }
+
+    .card {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:var(--radius); padding:1.25rem;
+      box-shadow:0 4px 24px rgba(0,0,0,0.25);
+    }
+    .card-title { font-size:0.88rem; font-weight:700; margin-bottom:1rem; display:flex; align-items:center; gap:0.5rem; }
+
+    /* Stats row */
+    .stat-row { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; }
+    .stat-box { background:var(--surface2); border-radius:10px; padding:0.85rem 1rem; }
+    .stat-val { font-size:1.3rem; font-weight:700; line-height:1; }
+    .stat-lbl { font-size:0.7rem; color:var(--muted); margin-top:3px; }
+    .c-green { color:var(--green); } .c-accent { color:var(--accent); }
+    .c-orange { color:var(--orange); } .c-purple { color:var(--purple); }
+
+    /* Legend */
+    .legend { display:flex; flex-direction:column; gap:0.5rem; }
+    .leg-item { display:flex; align-items:center; gap:0.5rem; font-size:0.8rem; }
+    .leg-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+    .leg-star { width:14px; height:14px; font-size:12px; text-align:center; flex-shrink:0; }
+
+    /* Distribution bar */
+    .dist-bar-wrap { margin-top:0.75rem; }
+    .dist-bar-track { height:10px; border-radius:100px; background:var(--surface2); overflow:hidden; position:relative; }
+    .dist-bar-ngo { height:100%; border-radius:100px 0 0 100px; background:var(--purple); transition:width 1s ease; }
+    .dist-bar-homeless { height:100%; position:absolute; top:0; border-radius:0 100px 100px 0; background:var(--green); transition:width 1s ease; }
+    .dist-labels { display:flex; justify-content:space-between; font-size:0.72rem; margin-top:0.4rem; color:var(--muted); }
+
+    /* Route steps */
+    .route-steps { display:flex; flex-direction:column; gap:0; max-height:320px; overflow-y:auto; }
+    .route-step { display:flex; align-items:flex-start; gap:0.75rem; padding:0.55rem 0; border-bottom:1px solid rgba(51,65,85,0.4); }
+    .route-step:last-child { border-bottom:none; }
+    .step-num { width:22px; height:22px; border-radius:50%; background:var(--surface2); display:flex; align-items:center; justify-content:center; font-size:0.68rem; font-weight:700; flex-shrink:0; color:var(--muted); }
+    .step-type { font-size:0.72rem; font-weight:700; padding:1px 7px; border-radius:4px; flex-shrink:0; }
+    .st-depot { background:rgba(248,113,113,0.2); color:var(--red); }
+    .st-restaurant { background:rgba(251,146,60,0.2); color:var(--orange); }
+    .st-ngo { background:rgba(167,139,250,0.2); color:var(--purple); }
+    .step-info { font-size:0.78rem; }
+    .step-name { font-weight:600; color:var(--text); }
+    .step-food { color:var(--muted); font-size:0.7rem; }
+
+    /* Volunteer card */
+    .vol-card { background:linear-gradient(135deg,rgba(52,211,153,0.1),rgba(56,189,248,0.1)); }
+    .vol-avatar { font-size:2.5rem; text-align:center; margin-bottom:0.5rem; }
+    .vol-name { font-weight:700; font-size:0.95rem; text-align:center; }
+    .vol-sub { font-size:0.75rem; color:var(--muted); text-align:center; margin-bottom:1rem; }
+    .btn-start {
+      width:100%; padding:0.7rem; border-radius:10px; border:none;
+      background:linear-gradient(135deg,#34d399,#0ea5e9); color:#fff;
+      font-weight:700; font-size:0.88rem; cursor:pointer; transition:all var(--trans);
+    }
+    .btn-start:hover { transform:translateY(-1px); box-shadow:0 4px 16px rgba(52,211,153,0.35); }
+    .btn-start:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+
+    .toast {
+      position:fixed; bottom:1.5rem; right:1.5rem; padding:0.7rem 1.2rem;
+      background:var(--surface); border:1px solid var(--green); border-radius:10px;
+      font-size:0.83rem; font-weight:500; box-shadow:0 4px 20px rgba(0,0,0,0.3);
+      opacity:0; transform:translateY(10px); transition:all 0.3s ease; z-index:999;
+      pointer-events:none;
+    }
+    .toast.show { opacity:1; transform:none; }
+
+    /* New styles for action-bar and buttons */
+    .action-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .btn {
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--trans);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .btn-secondary {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-secondary:hover {
+      background: var(--border);
+    }
+    .btn-primary {
+      background: var(--accent);
+      border: 1px solid var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background: #0284c7; /* A slightly darker accent for hover */
+      border-color: #0284c7;
+    }
+  </style>
+</head>
+<body>
+
+<div class="action-bar">
+  <h2 style="font-size: 1.1rem; font-weight: 700;">Live Route Plan</h2>
+  <div style="display:flex; gap:0.5rem">
+    <a href="/" class="btn btn-secondary">← Back to Dashboard</a>
+    <button id="gm-fallback-btn" class="btn btn-primary" onclick="window.open('https://www.google.com/maps/dir/?api=1&origin=13.0827,80.2707&destination=12.9716,80.2209', '_blank')">📍 Open in Google Maps</button>
+  </div>
+</div>
+
+<header class="topbar">
+  <div class="topbar-left">
+    <a href="/" class="back-btn">← Dashboard</a>
+    <div>
+      <div class="page-title">🗺️ Route Optimization Map</div>
+      <div class="page-sub">RL-optimized delivery route — after 10 PM distribution</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="role-badge rb-{{ user.role }}">{{ user.role }}</span>
+    <span style="font-size:0.8rem;color:var(--muted)">{{ user.display }}</span>
+    <button class="theme-btn" onclick="toggleTheme()" id="theme-btn" title="Toggle theme">🌙</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- LEFT: Map -->
+  <div>
+    <div id="map-container">
+      <div class="map-placeholder" id="map-placeholder">
+        <div class="icon">🗺️</div>
+        <p>Google Maps will load here once you configure your API key in this template.</p>
+        <small>Replace YOUR_GMAPS_API_KEY below</small>
+      </div>
+      <div id="gmap" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Panel -->
+  <div class="panel">
+
+    <!-- Stats -->
+    <div class="card">
+      <div class="card-title">📊 Optimization Summary</div>
+      <div class="stat-row">
+        <div class="stat-box">
+          <div class="stat-val c-green" id="rm-delivered">—</div>
+          <div class="stat-lbl">Food Delivered (units)</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val c-accent" id="rm-distance">—</div>
+          <div class="stat-lbl">Total Distance</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val c-orange" id="rm-episodes">—</div>
+          <div class="stat-lbl">Training Episodes</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val c-purple" id="rm-steps">—</div>
+          <div class="stat-lbl">Route Steps</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Distribution -->
+    <div class="card">
+      <div class="card-title">⚖️ 50/50 Distribution Plan</div>
+      <div class="dist-bar-wrap">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:0.78rem;">
+          <span style="color:var(--purple)">🏥 NGOs: <strong id="dist-ngo">—</strong></span>
+          <span style="color:var(--green)">🏕️ Homeless: <strong id="dist-homeless">—</strong></span>
+        </div>
+        <div class="dist-bar-track">
+          <div class="dist-bar-ngo" id="bar-ngo" style="width:50%"></div>
+          <div class="dist-bar-homeless" id="bar-homeless" style="width:50%;left:50%"></div>
+        </div>
+        <div class="dist-labels"><span>NGOs (50%)</span><span>Homeless (50%)</span></div>
+      </div>
+    </div>
+
+    <!-- Map Legend -->
+    <div class="card">
+      <div class="card-title">🗝️ Map Legend</div>
+      <div class="legend">
+        <div class="leg-item"><div class="leg-dot" style="background:#f43f5e"></div><span>Central Depot (start/end)</span></div>
+        <div class="leg-item"><div class="leg-dot" style="background:#f97316"></div><span>Restaurants (pickup)</span></div>
+        <div class="leg-item"><div class="leg-dot" style="background:#818cf8"></div><span>NGOs (drop-off)</span></div>
+        <div class="leg-item"><div class="leg-dot" style="background:#34d399"></div><span>Homeless Clusters (drop-off)</span></div>
+      </div>
+    </div>
+
+    <!-- Volunteer -->
+    <div class="card vol-card">
+      <div class="card-title">🚴 Assigned Volunteer</div>
+      <div class="vol-avatar">🧑‍🤝‍🧑</div>
+      <div class="vol-name" id="rm-volunteer">Arjun (NCC) + Priya (NSS)</div>
+      <div class="vol-sub">NCC/NSS Volunteer Team</div>
+      <button class="btn-start" id="btn-start-delivery" onclick="startDelivery()" {% if user.role != 'Volunteer' %}style="opacity:0.5;cursor:not-allowed" disabled{% endif %}>
+        {% if user.role == 'Volunteer' %}🚀 Start Delivery{% else %}🔒 Volunteer Access Only{% endif %}
+      </button>
+    </div>
+
+    <!-- Route Steps -->
+    <div class="card">
+      <div class="card-title">📋 Step-by-Step Route</div>
+      <div class="route-steps" id="route-steps">
+        <div style="color:var(--muted);font-size:0.82rem;text-align:center;padding:1rem">Loading route…</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Data injected by Flask ──
+const RESULTS = {{ results_json|safe }};
+const SIM_DATA = {{ sim_json|safe }};
+
+// ── Theme ── (standardized to fr-theme)
+function initTheme() {
+  const t = localStorage.getItem('fr-theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('theme-btn').textContent = t === 'dark' ? '🌙' : '☀️';
+}
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('fr-theme', next);
+  document.getElementById('theme-btn').textContent = next === 'dark' ? '🌙' : '☀️';
+}
+initTheme();
+
+// ── Populate Panel ──
+function populate() {
+  if (!RESULTS || !RESULTS.dqn) return;
+  const dqn = RESULTS.dqn;
+  const dist = RESULTS.distribution || {};
+
+  setText('rm-delivered', dqn.total_delivered?.toFixed(1) ?? '—');
+  setText('rm-distance',  dqn.total_distance?.toFixed(1)  ?? '—');
+  setText('rm-episodes',  RESULTS.episodes ?? '—');
+  setText('rm-steps',     dqn.steps ?? '—');
+  setText('rm-volunteer', RESULTS.volunteer ?? 'Arjun (NCC) + Priya (NSS)');
+
+  // Distribution bar
+  const total = dist.total || 1;
+  const ngoPct = Math.round((dist.ngo / total) * 100) || 50;
+  const hPct   = 100 - ngoPct;
+  setText('dist-ngo',      dist.ngo?.toFixed(1)      ?? '—');
+  setText('dist-homeless', dist.homeless?.toFixed(1)  ?? '—');
+  const barNgo = document.getElementById('bar-ngo');
+  const barH   = document.getElementById('bar-homeless');
+  setTimeout(() => {
+    if (barNgo) { barNgo.style.width = ngoPct + '%'; }
+    if (barH)   { barH.style.width = hPct + '%'; barH.style.left = ngoPct + '%'; }
+  }, 300);
+
+  // Route steps
+  renderRouteSteps(dqn.route || []);
+
+  // Try Google Maps
+  initMap(dqn.route || []);
+}
+
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+function renderRouteSteps(route) {
+  const container = document.getElementById('route-steps');
+  if (!route.length) {
+    container.innerHTML = '<div style="color:var(--muted);font-size:0.82rem;text-align:center;padding:1rem">No route data.</div>';
+    return;
+  }
+  container.innerHTML = route.map((stop, i) => {
+    const type  = stop[0];
+    const cls   = type === 'depot' ? 'st-depot' : type === 'restaurant' ? 'st-restaurant' : 'st-ngo';
+    const label = type === 'depot' ? 'Depot' : type === 'restaurant' ? 'Restaurant' : 'NGO';
+    const name  = type === 'depot' ? 'Central Depot'
+                : type === 'restaurant' ? `Restaurant ${(stop[3]||0)+1}`
+                : `NGO ${(stop[3]||0)+1}`;
+    const food  = stop[4] !== undefined ? ` · ${stop[4].toFixed(1)} units` : '';
+    return `
+      <div class="route-step">
+        <div class="step-num">${i}</div>
+        <div class="step-type ${cls}">${label}</div>
+        <div class="step-info">
+          <div class="step-name">${name}</div>
+          <div class="step-food">(${parseFloat(stop[1]).toFixed(1)}, ${parseFloat(stop[2]).toFixed(1)})${food}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Canvas-based animated map (fallback when no Google Maps key) ──
+function drawCanvasMap(route) {
+  const placeholder = document.getElementById('map-placeholder');
+  if (!placeholder) return;
+
+  // Build canvas
+  const canvas = document.createElement('canvas');
+  canvas.width  = placeholder.clientWidth  || 600;
+  canvas.height = 520;
+  canvas.style.cssText = 'width:100%;border-radius:12px;border:1px solid var(--border);display:block;';
+  placeholder.innerHTML = '';
+  placeholder.appendChild(canvas);
+
+  const ctx   = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  const bg     = isDark ? '#1e293b' : '#f8fafc';
+  const gridC  = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)';
+  const textC  = isDark ? '#94a3b8' : '#64748b';
+
+  // Coord mapping: 0-100 sim → canvas pixels
+  const PAD = 40;
+  const toX = v => PAD + (parseFloat(v) / 100) * (W - PAD*2);
+  const toY = v => PAD + ((100 - parseFloat(v)) / 100) * (H - PAD*2);
+
+  // Draw background
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = gridC;
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 10; i++) {
+    const x = PAD + (i / 10) * (W - PAD*2);
+    const y = PAD + (i / 10) * (H - PAD*2);
+    ctx.beginPath(); ctx.moveTo(x, PAD); ctx.lineTo(x, H - PAD); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
+  }
+
+  const restaurants = SIM_DATA.restaurants || [];
+  const ngos        = SIM_DATA.ngos        || [];
+  const homeless    = SIM_DATA.homeless     || [];
+
+  function drawCircle(x, y, r, fill, stroke) {
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2);
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+  function drawLabel(text, x, y, color) {
+    ctx.fillStyle = color; ctx.font = 'bold 9px Inter,sans-serif';
+    ctx.fillText(text, x + 5, y - 5);
+  }
+
+  // Draw restaurants
+  restaurants.forEach(r => { const x = toX(r.x), y = toY(r.y); drawCircle(x, y, 6, '#f97316', '#fff'); drawLabel('R'+r.id, x, y, '#fdba74'); });
+  // Draw NGOs
+  ngos.forEach(n => { const x = toX(n.x), y = toY(n.y); drawCircle(x, y, 6, '#818cf8', '#fff'); drawLabel('N'+n.id, x, y, '#a5b4fc'); });
+  // Draw homeless
+  homeless.forEach(h => { const x = toX(h.x), y = toY(h.y); drawCircle(x, y, 5, '#34d399', '#fff'); drawLabel('HC'+h.id, x, y, '#6ee7b7'); });
+  // Draw depot
+  const dx = toX(50), dy = toY(50);
+  ctx.beginPath(); ctx.arc(dx, dy, 9, 0, Math.PI*2);
+  ctx.fillStyle = '#f43f5e'; ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('D', dx, dy+3); ctx.textAlign = 'left';
+
+  if (!route || route.length < 2) return;
+
+  // Animate route drawing step by step
+  const points = route.map(s => ({ x: toX(s[1]), y: toY(s[2]), type: s[0] }));
+  let step = 0;
+  function drawNextSegment() {
+    if (step >= points.length - 1) return;
+    const p1 = points[step], p2 = points[step + 1];
+    const color = p2.type === 'restaurant' ? '#f97316' : p2.type === 'depot' ? '#f43f5e' : '#38bdf8';
+    // Draw animated segment
+    ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.globalAlpha = 0.75; ctx.stroke();
+    // Arrowhead
+    const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+    ctx.save(); ctx.translate(p2.x, p2.y); ctx.rotate(angle);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-8, -4); ctx.lineTo(-8, 4); ctx.closePath();
+    ctx.fillStyle = color; ctx.globalAlpha = 0.85; ctx.fill(); ctx.restore(); ctx.globalAlpha = 1;
+    step++;
+    setTimeout(drawNextSegment, 120);
+  }
+  setTimeout(drawNextSegment, 400);
+}
+
+function initMap(route) {
+  if (typeof google === 'undefined' || !google.maps) {
+    // Use Canvas animated map first
+    drawCanvasMap(route);
+    return;
+  }
+
+  document.getElementById('map-placeholder').style.display = 'none';
+  const mapEl = document.getElementById('gmap');
+  mapEl.style.display = 'block';
+
+  const center = { lat: 20.5937, lng: 78.9629 }; // India center fallback
+  const map = new google.maps.Map(mapEl, {
+    zoom: 13,
+    center: center,
+    styles: [
+      { elementType: "geometry",     stylers: [{ color: "#1e293b" }] },
+      { elementType: "labels.text.stroke", stylers: [{ color: "#0f172a" }] },
+      { elementType: "labels.text.fill",   stylers: [{ color: "#94a3b8" }] },
+      { featureType: "road", elementType: "geometry", stylers: [{ color: "#334155" }] },
+      { featureType: "water", elementType: "geometry", stylers: [{ color: "#0f172a" }] },
+    ],
+  });
+
+  const restaurants = SIM_DATA.restaurants || [];
+  const ngos        = SIM_DATA.ngos        || [];
+  const homeless    = SIM_DATA.homeless     || [];
+
+  // Compute bounding lat/lng from coords (map 0-100 to a local 1-degree box)
+  const BASE_LAT = 13.05, BASE_LNG = 80.20; // Chennai-like
+  const SCALE = 0.008;
+  const toLatLng = (x, y) => ({ lat: BASE_LAT + y * SCALE, lng: BASE_LNG + x * SCALE });
+
+  const bounds = new google.maps.LatLngBounds();
+
+  // Depot
+  const depotPos = toLatLng(50, 50);
+  new google.maps.Marker({ position: depotPos, map, title: 'Central Depot',
+    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 12, fillColor: '#f43f5e', fillOpacity:1, strokeColor:'#fff', strokeWeight:2 }});
+  bounds.extend(depotPos);
+
+  // Restaurants
+  restaurants.forEach(r => {
+    const pos = toLatLng(r.x, r.y);
+    new google.maps.Marker({ position: pos, map, title: r.name,
+      icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#f97316', fillOpacity:1, strokeColor:'#fff', strokeWeight:1.5 }});
+    bounds.extend(pos);
+  });
+
+  // NGOs
+  ngos.forEach(n => {
+    const pos = toLatLng(n.x, n.y);
+    new google.maps.Marker({ position: pos, map, title: n.name,
+      icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 5, fillColor: '#818cf8', fillOpacity:1, strokeColor:'#fff', strokeWeight:1 }});
+    bounds.extend(pos);
+  });
+
+  // Homeless
+  homeless.forEach(h => {
+    const pos = toLatLng(h.x, h.y);
+    new google.maps.Marker({ position: pos, map, title: h.name,
+      icon: { path: google.maps.SymbolPath.CIRCLE, scale: 7, fillColor: '#34d399', fillOpacity:1, strokeColor:'#fff', strokeWeight:1 }});
+    bounds.extend(pos);
+  });
+
+  // Route polyline
+  if (route && route.length > 1) {
+    const path = route.map(s => toLatLng(parseFloat(s[1]), parseFloat(s[2])));
+    new google.maps.Polyline({ path, map,
+      strokeColor: '#38bdf8', strokeOpacity: 0.8, strokeWeight: 2.5,
+      icons: [{ icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW }, offset: '100%', repeat: '80px' }]
+    });
+  }
+
+  map.fitBounds(bounds);
+}
+
+// ── Volunteer Start ──
+async function startDelivery() {
+  const btn = document.getElementById('btn-start-delivery');
+  btn.disabled = true;
+  btn.textContent = '⏳ Starting…';
+  try {
+    const res = await fetch('/api/volunteer/start', { method: 'POST' });
+    const json = await res.json();
+    if (json.success) showToast('🚀 ' + json.message);
+    else showToast('❌ ' + json.error, true);
+  } catch { showToast('❌ Network error', true); }
+  setTimeout(() => { btn.disabled = false; btn.textContent = '🚀 Start Delivery'; }, 3000);
+}
+
+function showToast(msg, err=false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.borderColor = err ? 'var(--red)' : 'var(--green)';
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+// ── Init ──
+populate();
+</script>
+
+<!-- Replace YOUR_GMAPS_API_KEY with a real key to enable live maps -->
+<script async defer
+  src="https://maps.googleapis.com/maps/api/js?key=YOUR_GMAPS_API_KEY&callback=Function.prototype">
+</script>
+
+</body>
+</html>
