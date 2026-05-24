@@ -1,0 +1,11 @@
+id,location,area,lat,lng,estimated_people,time_of_day,density,food_needed,notes,reported_by,date
+1,T. Nagar Bus Terminus,T. Nagar,13.0418,80.2341,25,Evening (6–10 PM),Medium,Rice & Dal,Large footfall near terminus; people sleep near platform,Survey Team A,2024-03-01
+2,Chennai Central Railway Station,Central,13.0836,80.2751,40,Night (10 PM–2 AM),High,Bread & Biscuits,High concentration of migrants and daily labourers,Survey Team B,2024-03-02
+3,Marina Beach Entrance,Marina,13.0500,80.2824,60,Morning (5–9 AM),High,Fruits & Packaged Meals,Large open space; homeless sleep near shore,Survey Team A,2024-03-02
+4,Saidapet Signal,Saidapet,13.0215,80.2237,20,All Day,Low,Rice & Vegetables,Small group near flyover underpass,Survey Team C,2024-03-03
+5,Egmore Railway Station,Egmore,13.0788,80.2620,35,Night (10 PM–2 AM),Medium,Chapati & Dal,Migrant workers waiting for trains; temporary shelter nearby,Survey Team B,2024-03-03
+6,Guindy National Park Gate,Guindy,12.9716,80.2209,28,Afternoon (1–5 PM),Medium,Cooked Rice,Group near park boundary; children present,Survey Team D,2024-03-04
+7,Vadapalani Junction,Vadapalani,13.0500,80.2123,18,Evening (6–10 PM),Low,Bread & Biscuits,Elderly population noted near temple,Survey Team C,2024-03-04
+8,Koyambedu Market,Koyambedu,13.0694,80.1948,45,Early Morning (3–6 AM),High,Leftover Vegetables,Market workers and homeless sleep near vegetable market,Survey Team A,2024-03-05
+9,Perambur Station,Perambur,13.1151,80.2464,22,Night (10 PM–2 AM),Medium,Rice & Sambar,Small cluster under station bridge,Survey Team D,2024-03-05
+10,Tondiarpet Market Area,Tondiarpet,13.1244,80.2865,30,All Day,Medium,Cooked Meals,Concentration near fishing community; families present,Survey Team B,2024-03-06
